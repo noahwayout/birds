@@ -80,6 +80,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .chip{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;background:light-dark(#e6efec,#1d3236);color:var(--ink);margin:0 4px 4px 0;white-space:nowrap}
 .chip.hot{background:light-dark(#ffe7d4,#3c2414)}
 .rep{color:var(--t1);font-weight:600}
+.links{font-weight:500;font-size:13px;white-space:nowrap}.links a{color:var(--t2)}
 .pct{white-space:nowrap;font-variant-numeric:tabular-nums}
 table{width:100%;border-collapse:collapse;font-size:15px}
 th{text-align:left;font-size:13px;color:var(--mut);font-weight:600;padding:8px 10px;border-bottom:2px solid var(--line)}
@@ -104,7 +105,7 @@ pre,.scroll{overflow-x:auto}code{overflow-wrap:anywhere}html{scroll-padding-top:
 <header class="band"><div class="wrap hero">
   <div>
     <h1>Who needs what in California</h1>
-    <p>March 20–27, San Diego to the Bay Area, with a Santa Barbara pelagic and inland detours. Rare birds first, then the birds you can only get here.</p>
+    <p>March 20–27, San Diego to the Bay Area, with a Ventura pelagic and inland detours. Rare birds first, then the birds you can only get here.</p>
     <div class="stats" id="stats"></div>
   </div>
   <div class="mapbox" id="map" aria-label="Route map"></div>
@@ -142,7 +143,7 @@ pre,.scroll{overflow-x:auto}code{overflow-wrap:anywhere}html{scroll-padding-top:
 
   <section class="view" id="v-pelagic">
     <h2>Pelagic day</h2>
-    <p class="lead">Your one shot at the seabirds, out of Santa Barbara. Late-March likelihoods are general guidance — your boat captain's recent trip reports are better.</p>
+    <p class="lead">Your one shot at the seabirds, out of Ventura Harbor into the Santa Barbara Channel. Late-March likelihoods are general guidance — your boat captain's recent trip reports are better.</p>
     <div id="pelagic"></div>
   </section>
 
@@ -209,7 +210,7 @@ pre,.scroll{overflow-x:auto}code{overflow-wrap:anywhere}html{scroll-padding-top:
 
 <script>
 // ===== SETTING: paste your Apps Script web app URL between the quotes =====
-const API_URL = "https://script.google.com/macros/s/AKfycbxT5PYhwZFQ4CJyUk5ZgRw7hK7u1d8vOBY9rVhHGetytNnXBnff940fht47lvOuOpmyBg/exec";
+const API_URL = "PASTE-YOUR-WEB-APP-URL-HERE";
 
 {
 // ===== TRIP DATA (edit freely) =====
@@ -268,7 +269,7 @@ const SUGGESTED_HOTSPOTS = {
   CC:  ["Morro Bay State Park & Morro Rock", "Montaña de Oro SP", "Pinnacles NP", "Andrew Molera SP (Big Sur)", "Carmel River State Beach", "Moss Landing & Elkhorn Slough", "Point Pinos", "Natural Bridges SB"],
   BAY: ["Palo Alto Baylands", "Shoreline Lake & Park (Mountain View)", "Alviso EEC", "Arrowhead Marsh (MLK Shoreline)", "Golden Gate Park", "Mines Road (Livermore)", "Pescadero Marsh"],
   DET: ["Sonny Bono Salton Sea NWR", "Obsidian Butte", "Carrizo Plain NM—Soda Lake", "Bitter Creek NWR", "Mount Pinos", "Santa Cruz Island—Prisoners Harbor"],
-  PEL: ["Santa Barbara Channel (pelagic)"],
+  PEL: ["Ventura Harbor", "Santa Barbara Channel (pelagic)"],
 };
 
 // Tiers: 1 = rare being reported now, 2 = only found in a small area, 3 = uncommon/hard, 4 = common & widespread.
@@ -276,7 +277,7 @@ const SUGGESTED_HOTSPOTS = {
 const CURATED = [
   // ---- Tier 2: California & Pacific Coast specialties ----
   { c: "California Condor", s: "Gymnogyps californianus", t: 2, a: ["CC", "DET"], d: "condor", n: "Pinnacles NP (High Peaks) or the Big Sur coast; Bitter Creek NWR on the Kern detour." },
-  { c: "Island Scrub-Jay", s: "Aphelocoma insularis", t: 2, a: ["DET"], d: "island", n: "Santa Cruz Island only — boat from Ventura Harbor. Ask whether your pelagic lands there." },
+  { c: "Island Scrub-Jay", s: "Aphelocoma insularis", t: 2, a: ["DET"], d: "island", n: "Santa Cruz Island only. Your Ventura pelagic may stop there — ask the operator." },
   { c: "Yellow-billed Magpie", s: "Pica nuttalli", t: 2, a: ["CC", "BAY"], n: "Oak savanna and ranchland: Carmel Valley, Salinas Valley, inland San Luis Obispo, south Santa Clara County." },
   { c: "California Thrasher", s: "Toxostoma redivivum", t: 2, a: ["SD", "LA", "SB", "CC", "BAY"], n: "Dense chaparral and coastal scrub; sings from the tops of bushes at dawn." },
   { c: "California Gnatcatcher", s: "Polioptila californica", t: 2, a: ["SD", "LA"], n: "Coastal sage scrub: Palos Verdes, San Joaquin Hills, Mission Trails, Tijuana River Valley." },
@@ -318,7 +319,7 @@ const CURATED = [
   { c: "Varied Thrush", s: "Ixoreus naevius", t: 3, a: ["CC", "BAY"], n: "Irregular winter visitor to damp forest; some years many, some years none." },
   { c: "Ferruginous Hawk", s: "Buteo regalis", t: 3, a: ["CC", "DET"], d: "carrizo", n: "Wintering in open country; leaving in March." },
 
-  // ---- Pelagic day (Santa Barbara Channel, late March) ----
+  // ---- Pelagic day (out of Ventura into the Santa Barbara Channel, late March) ----
   { c: "Black-vented Shearwater", s: "Ardenna opisthomelas", t: 2, a: ["PEL"], p: "likely", n: "Close to shore in winter and spring; often seen from the boat early." },
   { c: "Pink-footed Shearwater", s: "Ardenna creatopus", t: 2, a: ["PEL"], p: "possible", n: "Arriving in spring; numbers build in April." },
   { c: "Sooty Shearwater", s: "Ardenna grisea", t: 3, a: ["PEL"], p: "likely", n: "Can be in large numbers." },
@@ -637,6 +638,18 @@ const $ = id => document.getElementById(id);
 const esc = v => String(v ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
 const slug = v => norm(v).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "x";
 const pct = f => f >= 0.1 ? Math.round(f * 100) + "%" : f >= 0.01 ? (f * 100).toFixed(1) + "%" : f > 0 ? "<1%" : "—";
+const gmaps = q => "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(q);
+const ext = (href, text) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(text)}</a>`;
+// Links for a place: the eBird hotspot (or checklist, for private spots) and Google Maps.
+function placeLinks(o) {
+  const out = [];
+  if (o.locId && /^L\d+$/.test(o.locId) && !o.priv) out.push(ext("https://ebird.org/hotspot/" + o.locId, "eBird hotspot"));
+  else if (o.sub && /^S\d+$/.test(o.sub)) out.push(ext("https://ebird.org/checklist/" + o.sub, "eBird checklist"));
+  const lat = Number(o.lat), lng = Number(o.lng);
+  if (Number.isFinite(lat) && Number.isFinite(lng) && (lat || lng)) out.push(ext(gmaps(lat.toFixed(5) + "," + lng.toFixed(5)), "Google Maps"));
+  else if (o.where) out.push(ext(gmaps(o.where + ", California"), "Google Maps"));
+  return out.length ? ` <span class="links">${out.join(" · ")}</span>` : "";
+}
 const secName = id => (SECTIONS.find(s => s.id === id) || {}).short || id;
 const ui = { who: "all", sec: "all", q: "", common: false };
 
@@ -694,7 +707,7 @@ const DET_MARKS = [
 function renderMap() {
   const pts = a => a.map(([x, y]) => P(x, y).join(",")).join(" ");
   const land = pts(COAST) + " " + P(-117.12, 32.1).join(",") + " " + P(-114.8, 32.1).join(",") + " " + P(-114.8, 38.3).join(",");
-  const [bx, by] = P(-119.85, 34.24);
+  const [bx, by] = P(-119.3, 34.0);
   let s = `<svg viewBox="0 0 690 600" role="img" aria-label="Route from San Diego to the San Francisco Bay Area">
   <rect width="690" height="600" fill="#0f4c58"/>
   <polygon points="${land}" fill="#eadfc3"/>
@@ -707,7 +720,7 @@ function renderMap() {
     s += `<line x1="${fx}" y1="${fy}" x2="${x}" y2="${y}" stroke="#8a6d1b" stroke-width="2" stroke-dasharray="2 5"/>
     <rect x="${x - 6}" y="${y - 6}" width="12" height="12" transform="rotate(45 ${x} ${y})" fill="#8a6d1b"><title>${esc(name)} (detour)</title></rect>`;
   }
-  s += `<g><title>Pelagic trip out of Santa Barbara</title><path d="M${bx - 16} ${by} h32 l-6 9 h-20 z" fill="#fff"/><path d="M${bx} ${by - 18} v18 M${bx} ${by - 18} l10 12 h-10" stroke="#fff" stroke-width="2" fill="#fff"/></g>`;
+  s += `<g><title>Pelagic trip out of Ventura</title><path d="M${bx - 16} ${by} h32 l-6 9 h-20 z" fill="#fff"/><path d="M${bx} ${by - 18} v18 M${bx} ${by - 18} l10 12 h-10" stroke="#fff" stroke-width="2" fill="#fff"/></g>`;
   for (const sec of SECTIONS.filter(x => NODES[x.id])) {
     const [x, y] = P(...NODES[sec.id]);
     const n = S.model ? openTargets(sec.id).length : 0;
@@ -729,7 +742,7 @@ function birdRow(t, extra) {
     if (d) where += `<span class="chip hot">${esc(d.name)} <span class="pct">${pct(t.bestHot.f)}</span></span>`;
   }
   if (t.countyF) where += `<div>Seen on <span class="pct">${pct(t.countyF)}</span> of checklists in ${esc(t.bestCounty)} that week</div>`;
-  if (t.reports.length) where += t.reports.map(r => `<div class="rep">Reported${r.where ? " at " + esc(r.where) : ""}${r.date ? ", " + esc(r.date) : ""}${r.src === "live" ? " (eBird)" : ""}</div>`).join("");
+  if (t.reports.length) where += t.reports.map(r => `<div class="rep">Reported${r.where ? " at " + esc(r.where) : ""}${r.date ? ", " + esc(r.date) : ""}${r.src === "live" ? " (eBird)" : ""}${placeLinks(r)}</div>`).join("");
   if (t.n) where += `<div>${esc(t.n)}</div>`;
   return `<div class="row t${t.t}">
     <div class="nm">${esc(t.c)}<span class="sci">${esc(t.s)}</span></div>
@@ -777,6 +790,7 @@ function hotChips(top) {
   return top.map(([t, f]) => `<span class="chip t${t.t}"><span class="dot"></span> ${esc(t.c)} <span class="pct">${pct(f)}</span> · ${t.need.length}</span>`).join("");
 }
 
+const dsLinks = d => placeLinks({ locId: d.code, where: d.kind === "hotspot" ? d.name : "" });
 function renderHotspots() {
   const m = S.model;
   let h = "";
@@ -785,12 +799,12 @@ function renderHotspots() {
       SECTIONS.filter(s => s.id !== "PEL").map(s => `<div class="card"><h3>${esc(s.name)}</h3><p class="note">${SUGGESTED_HOTSPOTS[s.id].map(esc).join(" · ")}</p></div>`).join("") + `</div>`;
   } else {
     h += `<h3 style="margin-top:8px">Suggested stops</h3><p class="note">Chips show each bird's trip-week frequency at that spot and how many people need it.</p>`;
-    h += m.route.length ? m.route.map((r, i) => `<div class="stop"><div class="n">${i + 1}</div><div><b>${esc(r.h.ds.name)}</b> <span class="chip">${esc(secName(r.h.ds.section))}</span><div>${hotChips(r.h.top.filter(([t]) => r.adds.includes(t)))}</div></div></div>`).join("") : `<p class="note">No main-route hotspots loaded yet.</p>`;
+    h += m.route.length ? m.route.map((r, i) => `<div class="stop"><div class="n">${i + 1}</div><div><b>${esc(r.h.ds.name)}</b> <span class="chip">${esc(secName(r.h.ds.section))}</span>${dsLinks(r.h.ds)}<div>${hotChips(r.h.top.filter(([t]) => r.adds.includes(t)))}</div></div></div>`).join("") : `<p class="note">No main-route hotspots loaded yet.</p>`;
     for (const sec of SECTIONS.filter(s => s.id !== "DET")) {
       const list = m.hotspots.filter(x => x.ds.section === sec.id);
       if (!list.length) continue;
       h += `<h3 style="margin-top:28px">${esc(sec.name)}</h3><table class="stack"><thead><tr><th>Hotspot</th><th class="num">Score</th><th>Top targets</th></tr></thead><tbody>` +
-        list.map(x => `<tr><td><b>${esc(x.ds.name)}</b><div class="note">${esc(x.ds.checklists)} checklists that week</div></td><td class="num">${Math.round(x.score)}</td><td>${hotChips(x.top)}</td></tr>`).join("") + `</tbody></table>`;
+        list.map(x => `<tr><td><b>${esc(x.ds.name)}</b>${dsLinks(x.ds)}<div class="note">${esc(x.ds.checklists)} checklists that week</div></td><td class="num">${Math.round(x.score)}</td><td>${hotChips(x.top)}</td></tr>`).join("") + `</tbody></table>`;
     }
   }
   h += `<h3 style="margin-top:32px">Detours</h3><div class="grid2" style="margin-top:12px">`;
@@ -813,7 +827,7 @@ function renderPelagic() {
   const n = S.people.length;
   $("pelagic").innerHTML = `<table class="stack"><thead><tr><th>Bird</th><th>Chance</th><th class="num">Need it</th><th>Who</th><th>Notes</th></tr></thead><tbody>` +
     list.map(t => `<tr><td><b>${esc(t.c)}</b><div class="note"><i>${esc(t.s)}</i></div></td><td>${esc(t.p || (t.bestHot ? pct(t.bestHot.f) : "—"))}</td><td class="num">${n ? t.need.length + " of " + n : "—"}</td><td>${needText(t)}</td><td class="note">${esc(t.n || "")}</td></tr>`).join("") +
-    `</tbody></table><p class="note">Also ask the operator whether the trip lands on Santa Cruz Island — that's the only place for Island Scrub-Jay.</p>`;
+    `</tbody></table><p class="note">Island Packers trips from Ventura often stop at Santa Cruz Island — ask whether yours lands there, since that's the only place on Earth for Island Scrub-Jay.</p>`;
 }
 
 function renderRoster() {
@@ -840,7 +854,7 @@ function renderData() {
     ds.map(d => `<tr><td><b>${esc(d.name)}</b></td><td>${esc(d.kind)}</td><td>${esc(secName(d.section))}</td><td class="num">${esc(d.checklists)}</td><td class="num">${esc((d.rows || []).length)}</td><td class="w"><button class="link" data-dsdel="${esc(d.id)}">Remove</button></td></tr>`).join("") + `</tbody></table>` : `<p class="note">Nothing uploaded yet.</p>`;
   const rs = S.rarities.slice().sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
   $("rareList").innerHTML = rs.length ? `<table class="stack" style="margin-top:14px"><thead><tr><th>Bird</th><th>Where</th><th>Date</th><th></th></tr></thead><tbody>` +
-    rs.map(r => `<tr><td><b>${esc(r.c)}</b></td><td>${esc(r.where)} <span class="chip">${esc(secName(r.section))}</span></td><td>${esc(r.date)}</td><td class="w"><button class="link" data-rdel="${esc(r.id)}">Remove</button></td></tr>`).join("") + `</tbody></table>` : "";
+    rs.map(r => `<tr><td><b>${esc(r.c)}</b></td><td>${esc(r.where)} <span class="chip">${esc(secName(r.section))}</span>${placeLinks({ where: r.where })}</td><td>${esc(r.date)}</td><td class="w"><button class="link" data-rdel="${esc(r.id)}">Remove</button></td></tr>`).join("") + `</tbody></table>` : "";
   const bc = code => `https://ebird.org/barchart?byr=1900&eyr=2026&bmo=1&emo=12&r=${code}`;
   $("countyLinks").innerHTML = `<p>${Object.entries(COUNTIES).map(([code, [name, sec]]) => `<a href="${bc(code)}" target="_blank" rel="noopener">${esc(name)}</a> <span class="note">(${esc(secName(sec))})</span>`).join(" · ")}</p>`;
   $("hotLinks").innerHTML = SECTIONS.map(s => `<p><b>${esc(s.short)}:</b> ${SUGGESTED_HOTSPOTS[s.id].map(esc).join(" · ")}</p>`).join("");
