@@ -111,7 +111,7 @@ pre,.scroll{overflow-x:auto}code{overflow-wrap:anywhere}html{scroll-padding-top:
   <div class="mapbox" id="map" aria-label="Route map"></div>
 </div></header>
 <nav class="tabs" aria-label="Sections"><div class="tabrow">
-  <a href="#targets">Targets</a><a href="#hotspots">Hotspots</a><a href="#pelagic">Pelagic</a><a href="#group">Group</a><a href="#data">Trip data</a>
+  <a href="#targets">Targets</a><a href="#reports">Rare reports</a><a href="#hotspots">Hotspots</a><a href="#pelagic">Pelagic</a><a href="#group">Group</a><a href="#data">Trip data</a>
 </div></nav>
 <div id="gate" hidden><form id="gateForm" class="gatebox">
   <h2>Group passcode</h2>
@@ -133,6 +133,29 @@ pre,.scroll{overflow-x:auto}code{overflow-wrap:anywhere}html{scroll-padding-top:
       <label class="chk"><input type="checkbox" id="fCommon"> Include common birds</label>
     </div>
     <div id="targets"></div>
+  </section>
+
+  <section class="view" id="v-reports">
+    <h2>Rare reports</h2>
+    <p class="lead">eBird's notable sightings from the last 14 days in every county on the route, plus anything the group adds to the rarity log. Strays often stay only a day or two, so check how many days a bird has been reported and when it was last seen.</p>
+    <div class="bar">
+      <label class="chk"><input type="checkbox" id="rNeed" checked> Only birds someone needs</label>
+      <label class="chk"><input type="checkbox" id="rPreview"> Preview trip mode</label>
+    </div>
+    <div id="reports"></div>
+    <div class="grid2" style="margin-top:24px">
+      <div class="card">
+        <h3>Rarity log</h3>
+        <p class="note">Heard about a rare bird on the route? Add it here. From March 10, sightings from the last 7 days go to the top of everyone's target list.</p>
+        <form id="rareForm" class="w">
+          <label class="f">Bird<input type="text" id="rBird" list="birdNames" required autocomplete="off"></label><p></p>
+          <label class="f">Where<input type="text" id="rWhere" placeholder="Hotspot or address" autocomplete="off"></label><p></p>
+          <div class="bar"><label class="f">Section<select id="rSec"></select></label><label class="f">Date seen<input type="date" id="rDate"></label></div>
+          <button class="pri" type="submit">Add sighting</button>
+        </form>
+        <datalist id="birdNames"></datalist>
+              </div>
+    </div>
   </section>
 
   <section class="view" id="v-hotspots">
@@ -181,18 +204,6 @@ pre,.scroll{overflow-x:auto}code{overflow-wrap:anywhere}html{scroll-padding-top:
         <div class="w"><input type="file" id="bcFiles" accept=".txt,text/plain" multiple></div>
         <div id="staging"></div>
       </div>
-      <div class="card">
-        <h3>Rarity log</h3>
-        <p class="note">Heard about a rare bird on the route? Add it here and it goes straight to the top of everyone's target list.</p>
-        <form id="rareForm" class="w">
-          <label class="f">Bird<input type="text" id="rBird" list="birdNames" required autocomplete="off"></label><p></p>
-          <label class="f">Where<input type="text" id="rWhere" placeholder="Hotspot or address" autocomplete="off"></label><p></p>
-          <div class="bar"><label class="f">Section<select id="rSec"></select></label><label class="f">Date seen<input type="date" id="rDate"></label></div>
-          <button class="pri" type="submit">Add sighting</button>
-        </form>
-        <datalist id="birdNames"></datalist>
-        <div id="rareList"></div>
-      </div>
     </div>
     <h3 style="margin-top:28px">Loaded data</h3>
     <div id="dsList"></div>
@@ -202,15 +213,12 @@ pre,.scroll{overflow-x:auto}code{overflow-wrap:anywhere}html{scroll-padding-top:
       <p class="note">Hotspots worth downloading. Open each one on eBird, click Bar Charts, then Download Histogram Data. Hotspot files are named with an L-number, so give each one a name when you upload it.</p>
       <div id="hotLinks"></div>
     </details>
-    <details style="margin-top:8px" id="liveBox" open><summary>Live eBird rare bird alerts</summary>
-      <div id="live"></div>
-    </details>
   </section>
 </div></div></main>
 
 <script>
 // ===== SETTING: paste your Apps Script web app URL between the quotes =====
-const API_URL = "https://script.google.com/macros/s/AKfycbxT5PYhwZFQ4CJyUk5ZgRw7hK7u1d8vOBY9rVhHGetytNnXBnff940fht47lvOuOpmyBg/exec";
+const API_URL = "PASTE-YOUR-WEB-APP-URL-HERE";
 
 {
 // ===== TRIP DATA (edit freely) =====
@@ -221,6 +229,11 @@ const TRIP = {
   // eBird "weeks": each month has 4 (days 1–7, 8–14, 15–21, 22–end). Index 0 = Jan 1–7.
   // Mar 20–21 fall in index 10, Mar 22–27 in index 11.
   weekWeights: { 10: 0.25, 11: 0.75 },
+  start: "2027-03-20",
+  end: "2027-03-27",
+  // From this date, rare-bird reports seen in the last `recentDays` days join the target list.
+  rareFrom: "2027-03-10",
+  recentDays: 7,
 };
 
 const SECTIONS = [
@@ -478,7 +491,15 @@ function hasBird(p, t) {
 }
 
 // Build the merged target list and hotspot rankings.
-function buildModel(people, datasets, rarities, live) {
+function daysAgo(dateStr, today) {
+  const a = Date.parse(String(dateStr || "").slice(0, 10) + "T00:00:00Z");
+  const b = Date.parse(today + "T00:00:00Z");
+  return Number.isNaN(a) ? Infinity : Math.round((b - a) / 86400000);
+}
+function reportDate(r) { return r.last || r.date || String(r.at || "").slice(0, 10); }
+
+function buildModel(people, datasets, rarities, live, opts) {
+  opts = opts || {};
   const byKey = new Map();
   const targets = [];
   const find = (c, s) => byKey.get("s:" + norm(s)) || byKey.get("c:" + norm(c));
@@ -519,7 +540,9 @@ function buildModel(people, datasets, rarities, live) {
       t.t = f >= FREQ_COMMON ? 4 : f >= FREQ_VAGRANT ? 3 : 5;
     }
   }
-  const reports = [...(rarities || []).map(r => ({ ...r, src: "log" })), ...(live || []).map(r => ({ ...r, src: "live" }))];
+  // Reports only become targets in trip mode, and only if seen recently.
+  const reports = !opts.tripMode ? [] : [...(rarities || []).map(r => ({ ...r, src: "log" })), ...(live || []).map(r => ({ ...r, src: "live" }))]
+    .filter(r => daysAgo(reportDate(r), opts.today) <= TRIP.recentDays);
   for (const r of reports) {
     let t = find(r.c, r.s);
     if (!t) t = add({ c: r.c, s: r.s || "", t: 1, a: [] });
@@ -579,7 +602,7 @@ function buildModel(people, datasets, rarities, live) {
   return { targets, hotspots, route, detours, n };
 }
 
-if (typeof module !== "undefined") module.exports = { norm, parseCSV, parseLifeList, parseBarchart, buildModel, hasBird, TIER_NAME, TIER_WEIGHT };
+if (typeof module !== "undefined") module.exports = { daysAgo, reportDate, norm, parseCSV, parseLifeList, parseBarchart, buildModel, hasBird, TIER_NAME, TIER_WEIGHT };
 
 // ===== STORAGE =====
 // The app only talks to storage through watch, put and remove.
@@ -634,6 +657,10 @@ function makeLocalStore() {
 
 // ===== APP STATE =====
 const S = { people: [], datasets: [], rarities: [], live: [], model: null, store: null, pass: "", liveEnabled: false, liveChecked: "", staged: [] };
+try { S.preview = localStorage.getItem("cbt-preview") === "1"; } catch { S.preview = false; }
+const todayStr = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+const tripMode = () => S.preview || todayStr() >= TRIP.rareFrom;
+const niceDate = d => { const t = Date.parse(String(d || "").slice(0, 10) + "T12:00:00"); return Number.isNaN(t) ? "" : new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" }); };
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
 const slug = v => norm(v).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "x";
@@ -660,8 +687,8 @@ function fail(e, what) {
 }
 
 // ===== RENDER =====
-function recompute() { S.model = buildModel(S.people, S.datasets, S.rarities, S.live); }
-function render() { recompute(); renderStats(); renderMap(); renderTargets(); renderHotspots(); renderPelagic(); renderRoster(); renderData(); }
+function recompute() { S.model = buildModel(S.people, S.datasets, S.rarities, S.live, { tripMode: tripMode(), today: todayStr() }); }
+function render() { recompute(); renderStats(); renderMap(); renderTargets(); renderHotspots(); renderPelagic(); renderReports(); renderRoster(); renderData(); }
 
 function needText(t) {
   const n = S.people.length;
@@ -682,12 +709,12 @@ function openTargets(sec) {
 
 function renderStats() {
   const m = S.model, open = openTargets();
-  const rare = open.filter(t => t.t === 1).length;
+  const rare = new Set(allReports().filter(r => r.need.length).map(r => norm(r.s || r.c))).size;
   const lifers = m.targets.filter(t => t.t <= 4 && t.need.length).reduce((s, t) => s + t.need.length, 0);
   $("stats").innerHTML = [
     [S.people.length, S.people.length === 1 ? "life list loaded" : "life lists loaded"],
     [open.length, "priority targets"],
-    [rare, "rare birds reported", "hot"],
+    [rare, "needed rare birds reported now", "hot"],
     [lifers, "possible lifers across the group"],
   ].map(([v, l, c]) => `<div class="stat ${c || ""}"><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join("");
 }
@@ -742,7 +769,7 @@ function birdRow(t, extra) {
     if (d) where += `<span class="chip hot">${esc(d.name)} <span class="pct">${pct(t.bestHot.f)}</span></span>`;
   }
   if (t.countyF) where += `<div>Seen on <span class="pct">${pct(t.countyF)}</span> of checklists in ${esc(t.bestCounty)} that week</div>`;
-  if (t.reports.length) where += t.reports.map(r => `<div class="rep">Reported${r.where ? " at " + esc(r.where) : ""}${r.date ? ", " + esc(r.date) : ""}${r.src === "live" ? " (eBird)" : ""}${placeLinks(r)}</div>`).join("");
+  if (t.reports.length) where += t.reports.map(r => `<div class="rep">Reported${r.where ? " at " + esc(r.where) : ""}, last seen ${esc(niceDate(reportDate(r)) || "recently")}${r.days > 1 ? ` (${r.days} days)` : ""}${r.src === "log" ? " · rarity log" : ""}${placeLinks(r)}</div>`).join("");
   if (t.n) where += `<div>${esc(t.n)}</div>`;
   return `<div class="row t${t.t}">
     <div class="nm">${esc(t.c)}<span class="sci">${esc(t.s)}</span></div>
@@ -752,7 +779,7 @@ function birdRow(t, extra) {
 }
 
 const TIER_HELP = {
-  1: "Being reported now. Go for these first.",
+  1: "Reported in the last 7 days. Go for these first.",
   2: "Common in California but hard to find anywhere else. Plan days around these.",
   3: "Regular here but scarce, local or tricky.",
   4: "Common and widespread — expect these along the way.",
@@ -782,6 +809,7 @@ function renderTargets() {
     const head = `<div class="tier t${tier}"><span class="dot"></span><h3>${esc(TIER_NAME[tier])}</h3><span class="k">${list.length} · ${esc(TIER_HELP[tier])}</span></div>`;
     h += tier === 5 ? `<details><summary>${head}</summary>${body}</details>` : head + body;
   }
+  if (!tripMode()) h = `<p class="note">Rare-bird reports stay on the <a href="#reports">Rare reports</a> tab until ${esc(niceDate(TRIP.rareFrom))}, then recent ones join this list automatically.</p>` + h;
   if (!S.datasets.length) h += `<p class="note" style="margin-top:20px">Only the built-in specialty list is showing. Upload county bar charts on the <a href="#data">Trip data</a> tab to add every bird recorded along the route that week.</p>`;
   $("targets").innerHTML = h || `<div class="empty">No birds match these filters.</div>`;
 }
@@ -852,41 +880,67 @@ function renderData() {
   const ds = S.datasets.slice().sort((a, b) => (a.section || "").localeCompare(b.section || "") || a.name.localeCompare(b.name));
   $("dsList").innerHTML = ds.length ? `<table class="stack"><thead><tr><th>Name</th><th>Type</th><th>Section</th><th class="num">Checklists that week</th><th class="num">Species</th><th></th></tr></thead><tbody>` +
     ds.map(d => `<tr><td><b>${esc(d.name)}</b></td><td>${esc(d.kind)}</td><td>${esc(secName(d.section))}</td><td class="num">${esc(d.checklists)}</td><td class="num">${esc((d.rows || []).length)}</td><td class="w"><button class="link" data-dsdel="${esc(d.id)}">Remove</button></td></tr>`).join("") + `</tbody></table>` : `<p class="note">Nothing uploaded yet.</p>`;
-  const rs = S.rarities.slice().sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
-  $("rareList").innerHTML = rs.length ? `<table class="stack" style="margin-top:14px"><thead><tr><th>Bird</th><th>Where</th><th>Date</th><th></th></tr></thead><tbody>` +
-    rs.map(r => `<tr><td><b>${esc(r.c)}</b></td><td>${esc(r.where)} <span class="chip">${esc(secName(r.section))}</span>${placeLinks({ where: r.where })}</td><td>${esc(r.date)}</td><td class="w"><button class="link" data-rdel="${esc(r.id)}">Remove</button></td></tr>`).join("") + `</tbody></table>` : "";
   const bc = code => `https://ebird.org/barchart?byr=1900&eyr=2026&bmo=1&emo=12&r=${code}`;
   $("countyLinks").innerHTML = `<p>${Object.entries(COUNTIES).map(([code, [name, sec]]) => `<a href="${bc(code)}" target="_blank" rel="noopener">${esc(name)}</a> <span class="note">(${esc(secName(sec))})</span>`).join(" · ")}</p>`;
   $("hotLinks").innerHTML = SECTIONS.map(s => `<p><b>${esc(s.short)}:</b> ${SUGGESTED_HOTSPOTS[s.id].map(esc).join(" · ")}</p>`).join("");
   renderLive();
 }
 
-function renderLive() {
-  const el = $("live");
-  if (!S.store || !S.store.shared) { el.innerHTML = `<p class="note">Live alerts work once the page is connected to your Google Sheet.</p>`; return; }
-  if (!S.liveEnabled) { el.innerHTML = `<p class="note">Live alerts are off. Add your eBird API key to Code.gs in the Google Sheet's Apps Script to turn them on.</p>`; return; }
-  el.innerHTML = `<p class="note">eBird's notable sightings from the last 14 days in every county on the route show up at the top of the target list automatically.${S.liveChecked ? " Last checked " + esc(new Date(S.liveChecked).toLocaleString()) + "." : ""}</p>
-    <button id="eget">Check eBird again</button> <span class="note" id="estat"></span>`;
-}
+function renderLive() {}
 
 async function fetchLive(manual) {
   if (!S.liveEnabled) return;
-  const st = $("estat"); if (st && manual) st.textContent = "Checking…";
   try {
     const r = await api("getNotable");
     S.live = (r.items || []).filter(x => !isNonSpeciesName(x.c));
     S.liveChecked = r.checked || "";
     render();
-    const st2 = $("estat"); if (st2 && manual) st2.textContent = `Found ${S.live.length} notable sightings.`;
   } catch (e) {
-    const st2 = $("estat"); if (st2) st2.textContent = "Couldn't reach eBird: " + e.message;
+    status("Couldn't reach eBird: " + e.message);
   }
+}
+
+
+// ===== RARE REPORTS =====
+function allReports() {
+  const list = [
+    ...S.live.map(r => ({ ...r, src: "live" })),
+    ...S.rarities.map(r => ({ ...r, src: "log", last: r.date || String(r.at || "").slice(0, 10), days: 1 })),
+  ];
+  for (const r of list) r.need = S.people.filter(p => !hasBird(p, r)).map(p => p.id);
+  return list;
+}
+
+function renderReports() {
+  const today = todayStr(), on = tripMode();
+  const onlyNeeded = $("rNeed") ? $("rNeed").checked : true;
+  const list = allReports()
+    .filter(r => !onlyNeeded || r.need.length)
+    .sort((a, b) => String(reportDate(b)).localeCompare(String(reportDate(a))) || b.need.length - a.need.length);
+  const mode = on
+    ? `<div class="msg ok">Trip mode is on${S.preview && today < TRIP.rareFrom ? " (preview)" : ""}: reports from the last ${TRIP.recentDays} days are at the top of the Targets list.</div>`
+    : `<div class="msg">Planning mode: these reports don't affect targets or hotspots. On ${esc(niceDate(TRIP.rareFrom))} the app switches to trip mode and adds anything seen in the last ${TRIP.recentDays} days to the Targets list.</div>`;
+  const n = S.people.length;
+  const rows = list.map(r => {
+    const age = daysAgo(reportDate(r), today);
+    const fresh = age <= TRIP.recentDays;
+    const stay = r.days > 1 ? `Reported on ${r.days} days, ${esc(niceDate(r.first))}–${esc(niceDate(r.last))}` : `Reported once, ${esc(niceDate(reportDate(r)))}`;
+    return `<tr><td><b>${esc(r.c)}</b><div class="note"><i>${esc(r.s || "")}</i></div></td>
+      <td>${esc(r.where || "—")} <span class="chip">${esc(secName(r.section))}</span>${placeLinks(r)}</td>
+      <td>${stay}${r.src === "log" ? " · rarity log" : ""}<div class="note">${fresh ? "Seen in the last " + TRIP.recentDays + " days" : age + " days ago"}</div></td>
+      <td class="num">${n ? r.need.length + " of " + n : "—"}</td>
+      <td class="w">${r.src === "log" ? `<button class="link" data-rdel="${esc(r.id)}">Remove</button>` : ""}</td></tr>`;
+  }).join("");
+  const live = S.liveEnabled ? (S.liveChecked ? `eBird checked ${esc(new Date(S.liveChecked).toLocaleString())}.` : "Checking eBird…") : "Live eBird alerts are off (no eBird key in Settings.gs).";
+  $("reports").innerHTML = mode + `<p class="note">${live} ${S.liveEnabled ? '<button class="link" id="eget">Check again</button>' : ""}</p>` +
+    (rows ? `<table class="stack"><thead><tr><th>Bird</th><th>Where</th><th>When</th><th class="num">Need it</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+          : `<div class="empty">No ${onlyNeeded ? "needed " : ""}rare birds reported along the route in the last 14 days.</div>`);
 }
 
 // ===== EVENTS =====
 function route() {
   const v = (location.hash || "").slice(1);
-  const views = ["targets", "hotspots", "pelagic", "group", "data"];
+  const views = ["targets", "reports", "hotspots", "pelagic", "group", "data"];
   const cur = views.includes(v) ? v : (S.view || (S.people.length ? "targets" : "group"));
   if (S.ready && !S.view) S.view = cur;
   if (views.includes(v)) S.view = v;
@@ -965,7 +1019,6 @@ $("staging").addEventListener("click", async e => {
   } catch (err) { b.disabled = false; fail(err, "save that file"); }
 });
 $("dsList").addEventListener("click", async e => { const b = e.target.closest("[data-dsdel]"); if (b) try { await S.store.remove("datasets", b.dataset.dsdel); } catch (err) { fail(err, "remove that file"); } });
-$("rareList").addEventListener("click", async e => { const b = e.target.closest("[data-rdel]"); if (b) try { await S.store.remove("rarities", b.dataset.rdel); } catch (err) { fail(err, "remove that sighting"); } });
 $("rareForm").addEventListener("submit", async e => {
   e.preventDefault();
   const c = $("rBird").value.trim(); if (!c) return;
@@ -976,7 +1029,13 @@ $("rareForm").addEventListener("submit", async e => {
     $("rareForm").reset(); status(`Added ${c} to the rarity log.`, true);
   } catch (err) { fail(err, "add that sighting"); }
 });
-$("live").addEventListener("click", e => { if (e.target.id === "eget") fetchLive(true); });
+$("reports").addEventListener("click", async e => {
+  if (e.target.id === "eget") { e.target.textContent = "Checking…"; await fetchLive(true); }
+  const b = e.target.closest("[data-rdel]"); if (b) try { await S.store.remove("rarities", b.dataset.rdel); } catch (err) { fail(err, "remove that sighting"); }
+});
+$("rNeed").addEventListener("change", renderReports);
+$("rPreview").checked = !!S.preview;
+$("rPreview").addEventListener("change", e => { S.preview = e.target.checked; try { localStorage.setItem("cbt-preview", S.preview ? "1" : "0"); } catch {} render(); });
 
 // ===== START =====
 function connect(store) {
