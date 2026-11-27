@@ -80,6 +80,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .chip{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;background:light-dark(#e6efec,#1d3236);color:var(--ink);margin:0 4px 4px 0;white-space:nowrap}
 .chip.hot{background:light-dark(#ffe7d4,#3c2414)}
 .rep{color:var(--t1);font-weight:600}
+.spots{margin-top:6px}.spots summary{min-height:36px;font-size:14px;color:var(--t2)}.spots ol{margin:4px 0 8px;padding-left:20px}.spots li{margin:6px 0;color:var(--ink)}
 .links{font-weight:500;font-size:13px;white-space:nowrap}.links a{color:var(--t2)}
 .pct{white-space:nowrap;font-variant-numeric:tabular-nums}
 table{width:100%;border-collapse:collapse;font-size:15px}
@@ -205,6 +206,8 @@ pre,.scroll{overflow-x:auto}code{overflow-wrap:anywhere}html{scroll-padding-top:
         <div id="staging"></div>
       </div>
     </div>
+    <h3 style="margin-top:28px">Hotspot coverage</h3>
+    <div id="uncovered"></div>
     <h3 style="margin-top:28px">Loaded data</h3>
     <div id="dsList"></div>
     <details style="margin-top:20px"><summary>Where to get bar charts</summary>
@@ -218,7 +221,7 @@ pre,.scroll{overflow-x:auto}code{overflow-wrap:anywhere}html{scroll-padding-top:
 
 <script>
 // ===== SETTING: paste your Apps Script web app URL between the quotes =====
-const API_URL = "https://script.google.com/macros/s/AKfycbxT5PYhwZFQ4CJyUk5ZgRw7hK7u1d8vOBY9rVhHGetytNnXBnff940fht47lvOuOpmyBg/exec";
+const API_URL = "PASTE-YOUR-WEB-APP-URL-HERE";
 
 {
 // ===== TRIP DATA (edit freely) =====
@@ -656,7 +659,7 @@ function makeLocalStore() {
 }
 
 // ===== APP STATE =====
-const S = { people: [], datasets: [], rarities: [], live: [], model: null, store: null, pass: "", liveEnabled: false, liveChecked: "", staged: [] };
+const S = { codes: {}, codesAsked: new Set(), people: [], datasets: [], rarities: [], live: [], model: null, store: null, pass: "", liveEnabled: false, liveChecked: "", staged: [] };
 try { S.preview = localStorage.getItem("cbt-preview") === "1"; } catch { S.preview = false; }
 const todayStr = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
 const tripMode = () => S.preview || todayStr() >= TRIP.rareFrom;
@@ -677,6 +680,7 @@ function placeLinks(o) {
   else if (o.where) out.push(ext(gmaps(o.where + ", California"), "Google Maps"));
   return out.length ? ` <span class="links">${out.join(" · ")}</span>` : "";
 }
+function dsLinks(d) { return placeLinks({ locId: d.code, where: d.kind === "hotspot" ? d.name : "" }); }
 const secName = id => (SECTIONS.find(s => s.id === id) || {}).short || id;
 const ui = { who: "all", sec: "all", q: "", common: false };
 
@@ -760,17 +764,47 @@ function renderMap() {
   $("map").innerHTML = s;
 }
 
+// Up to 5 best trip-week hotspots for a bird, spread across route sections first.
+// Ranks by a cautious estimate, so 3 of 6 checklists doesn't outrank 80 of 200.
+function sureness(f, n) {
+  if (!n) return 0;
+  const z = 1.28, z2 = z * z;
+  return (f + z2 / (2 * n) - z * Math.sqrt(f * (1 - f) / n + z2 / (4 * n * n))) / (1 + z2 / n);
+}
+function bestSpots(t) {
+  const list = t.hot.map(h => { const ds = S.datasets.find(d => d.id === h.id); return { f: h.f, ds, k: ds ? sureness(h.f, ds.checklists) : 0 }; })
+    .filter(x => x.ds).sort((a, b) => b.k - a.k);
+  const pick = [], seen = new Set();
+  for (const x of list) if (!seen.has(x.ds.section)) { seen.add(x.ds.section); pick.push(x); }
+  for (const x of list) if (pick.length < 5 && !pick.includes(x)) pick.push(x);
+  return pick.slice(0, 5).sort((a, b) => b.k - a.k);
+}
+function speciesMapUrl(t) {
+  const code = S.codes[norm(t.s)];
+  if (!code || !/^[a-z0-9]+$/.test(code)) return "";
+  return `https://ebird.org/map/${code}?bmo=3&emo=3&yr=all&env.minX=-122.9&env.minY=32.4&env.maxX=-115.3&env.maxY=38.1`;
+}
+function spotsBlock(t) {
+  const spots = bestSpots(t), map = speciesMapUrl(t);
+  if (!spots.length && !map) return "";
+  const items = spots.map(x => `<li><b>${esc(x.ds.name)}</b> <span class="pct">${pct(x.f)}</span> <span class="chip">${esc(secName(x.ds.section))}</span>
+    <span class="note">${esc(x.ds.checklists)} checklists${x.ds.checklists < 15 ? " — small sample" : ""}</span>${dsLinks(x.ds)}</li>`).join("");
+  const mapLink = map ? `<div class="note">${ext(map, "eBird species map for March")} — every sighting, including hotspots not uploaded here.</div>` : "";
+  return spots.length
+    ? `<details class="spots"><summary>Best spots that week (${spots.length})</summary><ol>${items}</ol>${mapLink}</details>`
+    : `<div class="spots">${mapLink}</div>`;
+}
+
 function birdRow(t, extra) {
   const n = S.people.length;
   const secs = [...t.sections].map(x => `<span class="chip">${esc(secName(x))}</span>`).join("");
   let where = secs;
-  if (t.bestHot) {
-    const d = S.datasets.find(x => x.id === t.bestHot.id);
-    if (d) where += `<span class="chip hot">${esc(d.name)} <span class="pct">${pct(t.bestHot.f)}</span></span>`;
-  }
+  const top = bestSpots(t)[0];
+  if (top) where += `<span class="chip hot">${esc(top.ds.name)} <span class="pct">${pct(top.f)}</span></span>`;
   if (t.countyF) where += `<div>Seen on <span class="pct">${pct(t.countyF)}</span> of checklists in ${esc(t.bestCounty)} that week</div>`;
   if (t.reports.length) where += t.reports.map(r => `<div class="rep">Reported${r.where ? " at " + esc(r.where) : ""}, last seen ${esc(niceDate(reportDate(r)) || "recently")}${r.days > 1 ? ` (${r.days} days)` : ""}${r.src === "log" ? " · rarity log" : ""}${placeLinks(r)}</div>`).join("");
   if (t.n) where += `<div>${esc(t.n)}</div>`;
+  where += spotsBlock(t);
   return `<div class="row t${t.t}">
     <div class="nm">${esc(t.c)}<span class="sci">${esc(t.s)}</span></div>
     <div class="need">${n ? `<b>${t.need.length}</b><span>of ${n} need it</span>` : ""}${extra || ""}</div>
@@ -818,7 +852,6 @@ function hotChips(top) {
   return top.map(([t, f]) => `<span class="chip t${t.t}"><span class="dot"></span> ${esc(t.c)} <span class="pct">${pct(f)}</span> · ${t.need.length}</span>`).join("");
 }
 
-const dsLinks = d => placeLinks({ locId: d.code, where: d.kind === "hotspot" ? d.name : "" });
 function renderHotspots() {
   const m = S.model;
   let h = "";
@@ -880,6 +913,10 @@ function renderData() {
   const ds = S.datasets.slice().sort((a, b) => (a.section || "").localeCompare(b.section || "") || a.name.localeCompare(b.name));
   $("dsList").innerHTML = ds.length ? `<table class="stack"><thead><tr><th>Name</th><th>Type</th><th>Section</th><th class="num">Checklists that week</th><th class="num">Species</th><th></th></tr></thead><tbody>` +
     ds.map(d => `<tr><td><b>${esc(d.name)}</b></td><td>${esc(d.kind)}</td><td>${esc(secName(d.section))}</td><td class="num">${esc(d.checklists)}</td><td class="num">${esc((d.rows || []).length)}</td><td class="w"><button class="link" data-dsdel="${esc(d.id)}">Remove</button></td></tr>`).join("") + `</tbody></table>` : `<p class="note">Nothing uploaded yet.</p>`;
+  const uncovered = S.model.targets.filter(t => t.t <= 3 && t.need.length && !t.hot.length && !(t.sections.size === 1 && t.sections.has("PEL")));
+  $("uncovered").innerHTML = S.people.length ? (uncovered.length
+    ? `<p class="note">${uncovered.length} priority targets aren't seen at any uploaded hotspot yet. Download bar charts for hotspots where these birds turn up to see where to find them:</p><p>${uncovered.map(t => `<span class="chip t${t.t}"><span class="dot"></span> ${esc(t.c)}</span>`).join("")}</p>`
+    : `<p class="note">Every priority target is covered by at least one uploaded hotspot.</p>`) : "";
   const bc = code => `https://ebird.org/barchart?byr=1900&eyr=2026&bmo=1&emo=12&r=${code}`;
   $("countyLinks").innerHTML = `<p>${Object.entries(COUNTIES).map(([code, [name, sec]]) => `<a href="${bc(code)}" target="_blank" rel="noopener">${esc(name)}</a> <span class="note">(${esc(secName(sec))})</span>`).join(" · ")}</p>`;
   $("hotLinks").innerHTML = SECTIONS.map(s => `<p><b>${esc(s.short)}:</b> ${SUGGESTED_HOTSPOTS[s.id].map(esc).join(" · ")}</p>`).join("");
@@ -887,6 +924,14 @@ function renderData() {
 }
 
 function renderLive() {}
+
+async function ensureCodes() {
+  if (!S.store || !S.store.shared || !S.model) return;
+  const names = S.model.targets.filter(t => t.t <= 3 && t.s).map(t => norm(t.s)).filter(n => !S.codesAsked.has(n));
+  if (!names.length) return;
+  names.forEach(n => S.codesAsked.add(n));
+  try { Object.assign(S.codes, await api("getSpeciesCodes", [names])); renderTargets(); } catch (e) { /* map links are optional */ }
+}
 
 async function fetchLive(manual) {
   if (!S.liveEnabled) return;
@@ -1043,7 +1088,7 @@ function connect(store) {
   let queued = false;
   for (const c of COLLS) store.watch(c, docs => {
     S[c] = docs;
-    if (S.ready && !queued) { queued = true; queueMicrotask(() => { queued = false; fillFilters(); render(); route(); }); }
+    if (S.ready && !queued) { queued = true; queueMicrotask(() => { queued = false; fillFilters(); render(); route(); ensureCodes(); }); }
   });
 }
 function afterLoad() { S.ready = true; fillFilters(); render(); route(); }
@@ -1070,6 +1115,7 @@ async function openApp() {
     afterLoad();
     S.store.poll();
     fetchLive(false);
+    ensureCodes();
   } catch (e) {
     if (e.code === "passcode") { try { localStorage.removeItem("cbt-pass"); } catch {} showGate(S.pass ? "That passcode didn't work. Try again." : ""); }
     else if (e.code === "setup") showGate(e.message);
